@@ -361,17 +361,30 @@ function blockAppliesToDate(b, date) {
 async function apiLoad() {
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('TU_URL')) { setStatus('Sin conexión', false); return []; }
   try {
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=getBlocks`);
+    const res  = await fetch(`${APPS_SCRIPT_URL}?action=getBlocks`);
     const data = await res.json();
     setStatus('Guardado en Drive', true);
-    return data.blocks || [];
+    const blocks = data.blocks || [];
+    return blocks.map(b => ({
+      ...b,
+      id:    Number(b.id),
+      start: String(b.start),
+      end:   String(b.end),
+      weeks: Number(b.weeks) || 1,
+      color: Number(b.color) || 0,
+      days:  Array.isArray(b.days) ? b.days.map(Number) : [],
+    }));
   } catch(e) { setStatus('Error de conexión', false); return []; }
 }
 async function apiSave(blocks) {
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('TU_URL')) return;
   setStatus('Guardando...', null);
   try {
-    await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({action:'saveBlocks', blocks}) });
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'saveBlocks', blocks }),
+    });
     setStatus('Guardado en Drive', true);
   } catch(e) { setStatus('Error al guardar', false); }
 }

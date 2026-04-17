@@ -315,7 +315,7 @@
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxl5J4-F4zWd_iCCpOq--dUqb35rz6K2C92pHwr6yydN38dXhBnc8L-jveQeglcQZA6g/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyNPnO29f5o6B4ooAc6tGHpb0pbwpk5wbsIrKccPlTrOW3Vi0JN9EIZ6iqUOzV2xJf-CQ/exec';
 
 // ── CONSTANTES ─────────────────────────────────────────────────
 const DAYS_SHORT = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -380,11 +380,9 @@ async function apiSave(blocks) {
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('TU_URL')) return;
   setStatus('Guardando...', null);
   try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'saveBlocks', blocks }),
-    });
+    // Se usa GET con parámetros para evitar bloqueos CORS desde archivo local
+    const url = `${APPS_SCRIPT_URL}?action=saveBlocks&blocks=${encodeURIComponent(JSON.stringify(blocks))}`;
+    await fetch(url);
     setStatus('Guardado en Drive', true);
   } catch(e) { setStatus('Error al guardar', false); }
 }

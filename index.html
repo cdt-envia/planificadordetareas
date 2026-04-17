@@ -357,6 +357,23 @@ function blockAppliesToDate(b, date) {
   return b.days && b.days.includes(jsDay(date));
 }
 
+// ── UTILIDAD: extrae HH:MM de cualquier formato que devuelva Sheets ──
+function parseTimeFromSheets(val) {
+  if (!val) return '00:00';
+  const s = String(val);
+  // Caso ideal: ya viene como "09:00" o "09:00:00"
+  const simple = s.match(/^(\d{1,2}):(\d{2})/);
+  if (simple) {
+    return simple[1].padStart(2,'0') + ':' + simple[2];
+  }
+  // Caso Sheets: "Sat Dec 30 1899 09:00:00 GMT-0456 ..."
+  const fromDate = s.match(/(\d{1,2}):(\d{2}):\d{2}/);
+  if (fromDate) {
+    return fromDate[1].padStart(2,'0') + ':' + fromDate[2];
+  }
+  return '00:00';
+}
+
 // ── API ────────────────────────────────────────────────────────
 async function apiLoad() {
   if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('TU_URL')) { setStatus('Sin conexión', false); return []; }
@@ -368,8 +385,8 @@ async function apiLoad() {
     return blocks.map(b => ({
       ...b,
       id:    Number(b.id),
-      start: String(b.start).slice(0, 5),
-      end:   String(b.end).slice(0, 5),
+      start: parseTimeFromSheets(b.start),
+      end:   parseTimeFromSheets(b.end),
       weeks: Number(b.weeks) || 1,
       color: Number(b.color) || 0,
       days:  Array.isArray(b.days) ? b.days.map(Number) : [],
@@ -662,19 +679,8 @@ function renderModalParts() {
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); state.editId = null; }
 
 function cleanTime(val) {
-  // Siempre devuelve formato HH:MM sin importar lo que el navegador entregue
-  if (!val) return '00:00';
-  // Si ya viene como "HH:MM" o "HH:MM:SS", toma solo las primeras 5 letras
-  if (typeof val === 'string' && val.includes(':')) {
-    return val.slice(0, 5);
-  }
-  // Si por algún motivo llega como objeto Date
-  if (val instanceof Date) {
-    const h = String(val.getHours()).padStart(2, '0');
-    const m = String(val.getMinutes()).padStart(2, '0');
-    return h + ':' + m;
-  }
-  return String(val).slice(0, 5);
+  // Reutiliza parseTimeFromSheets para manejar todos los formatos
+  return parseTimeFromSheets(val);
 }
 
 function saveModal() {

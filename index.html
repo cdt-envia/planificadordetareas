@@ -368,8 +368,8 @@ async function apiLoad() {
     return blocks.map(b => ({
       ...b,
       id:    Number(b.id),
-      start: String(b.start),
-      end:   String(b.end),
+      start: String(b.start).slice(0, 5),
+      end:   String(b.end).slice(0, 5),
       weeks: Number(b.weeks) || 1,
       color: Number(b.color) || 0,
       days:  Array.isArray(b.days) ? b.days.map(Number) : [],
@@ -631,8 +631,8 @@ function openEdit(id) {
   modalColor = b.color;
   document.getElementById('modal-title').textContent = 'Editar bloque';
   document.getElementById('m-name').value = b.name;
-  document.getElementById('m-start').value = b.start;
-  document.getElementById('m-end').value = b.end;
+  document.getElementById('m-start').value = cleanTime(b.start);
+  document.getElementById('m-end').value = cleanTime(b.end);
   document.getElementById('m-weeks').value = b.weeks;
   document.getElementById('m-del').style.display = 'inline-block';
   renderModalParts();
@@ -661,10 +661,26 @@ function renderModalParts() {
 
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); state.editId = null; }
 
+function cleanTime(val) {
+  // Siempre devuelve formato HH:MM sin importar lo que el navegador entregue
+  if (!val) return '00:00';
+  // Si ya viene como "HH:MM" o "HH:MM:SS", toma solo las primeras 5 letras
+  if (typeof val === 'string' && val.includes(':')) {
+    return val.slice(0, 5);
+  }
+  // Si por algún motivo llega como objeto Date
+  if (val instanceof Date) {
+    const h = String(val.getHours()).padStart(2, '0');
+    const m = String(val.getMinutes()).padStart(2, '0');
+    return h + ':' + m;
+  }
+  return String(val).slice(0, 5);
+}
+
 function saveModal() {
   const name  = document.getElementById('m-name').value.trim();
-  const start = document.getElementById('m-start').value;
-  const end   = document.getElementById('m-end').value;
+  const start = cleanTime(document.getElementById('m-start').value);
+  const end   = cleanTime(document.getElementById('m-end').value);
   const weeks = parseInt(document.getElementById('m-weeks').value) || 1;
   if (!name || modalDays.length === 0) { showToast('Completa el nombre y al menos un día', 'err'); return; }
   const [sh,sm] = start.split(':').map(Number), [eh,em] = end.split(':').map(Number);

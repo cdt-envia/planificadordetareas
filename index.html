@@ -470,6 +470,30 @@ function renderSidebar() {
 }
 
 // ── DAY VIEW ───────────────────────────────────────────────────
+// Detecta grupos de bloques que se solapan y devuelve columnas para cada uno
+function resolveOverlaps(blocks) {
+  // Convierte hora "HH:MM" a minutos
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  // Ordena por hora de inicio
+  const sorted = [...blocks].sort((a,b) => toMin(a.start) - toMin(b.start));
+  const cols = [];   // cols[i] = índice de columna del bloque i
+  const colEnds = []; // último fin de cada columna (en minutos)
+
+  sorted.forEach((b, i) => {
+    const s = toMin(b.start);
+    const e = toMin(b.end);
+    // Busca la primera columna libre
+    let placed = false;
+    for (let c = 0; c < colEnds.length; c++) {
+      if (colEnds[c] <= s) { cols[i] = c; colEnds[c] = e; placed = true; break; }
+    }
+    if (!placed) { cols[i] = colEnds.length; colEnds.push(e); }
+  });
+
+  const totalCols = colEnds.length;
+  return sorted.map((b, i) => ({ block: b, col: cols[i], total: totalCols }));
+}
+
 function renderDay(area) {
   const date = state.cursor;
   let html = `<div class="day-wrap"><div class="hour-col"><div style="height:10px"></div>`;
@@ -481,7 +505,19 @@ function renderDay(area) {
 
   const gridCol = document.getElementById('grid-col');
   const dayBlocks = state.blocks.filter(b => blockAppliesToDate(b, date));
-  dayBlocks.forEach(b => placeBlock(gridCol, b, 8, 8));
+  const resolved = resolveOverlaps(dayBlocks);
+  const PAD = 8;
+  const colW = col => {
+    const w = (gridCol.clientWidth || 600) - PAD * 2;
+    return w / col.total;
+  };
+  resolved.forEach(({ block, col, total }) => {
+    const w = (1 / total);
+    placeBlock(gridCol, block,
+      PAD + col * ((gridCol.clientWidth || 600) - PAD*2) / total,
+      PAD + (total - col - 1) * ((gridCol.clientWidth || 600) - PAD*2) / total
+    );
+  });
   placeCurrentTimeLine(gridCol);
 }
 
@@ -553,7 +589,8 @@ function renderWeek(area) {
   days.forEach((d, di) => {
     const col = document.getElementById(`wdc-${di}`);
     const dayBlocks = state.blocks.filter(b => blockAppliesToDate(b, d));
-    dayBlocks.forEach(b => {
+    const resolved = resolveOverlaps(dayBlocks);
+    resolved.forEach(({ block: b, col: colIdx, total }) => {
       const [sh, sm] = b.start.split(':').map(Number);
       const [eh, em] = b.end.split(':').map(Number);
       const top    = (sh + sm/60 - HOUR_START) * PX_PER_HOUR + 10;
@@ -563,7 +600,9 @@ function renderWeek(area) {
       const el = document.createElement('div');
       el.className = 'week-block';
       el.dataset.edit = b.id;
-      el.style.cssText = `top:${top}px;height:${height}px;background:${c.bg};border-left-color:${c.accent};`;
+      const leftPct  = (colIdx / total * 100).toFixed(1);
+      const widthPct = (1 / total * 100).toFixed(1);
+      el.style.cssText = `top:${top}px;height:${height}px;background:${c.bg};border-left-color:${c.accent};left:${leftPct}%;width:calc(${widthPct}% - 3px);right:auto;`;
       el.innerHTML = `<div class="week-block-name" style="color:${c.text}">${b.name}</div>
         ${height>26?`<div class="week-block-time" style="color:${c.accent}">${b.start}–${b.end}</div>`:''}`;
       el.onclick = () => openEdit(b.id);

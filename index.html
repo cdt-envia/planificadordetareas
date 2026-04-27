@@ -215,17 +215,22 @@
 
 
   /* ── DONE / TRACKING ── */
-  .tblock.done, .week-block.done { opacity: 0.55; }
-  .tblock.done .tblock-name, .week-block.done .week-block-name { text-decoration: line-through; }
-  .done-btn {
-    position: absolute; top: 5px; right: 6px;
-    width: 20px; height: 20px; border-radius: 50%;
-    border: 1.5px solid currentColor; background: transparent;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 11px; transition: all 0.15s; flex-shrink: 0; z-index: 2;
+  .tblock, .week-block { user-select: none; }
+  .tblock.done { border-left-color: #3a8a3a !important; background: #f0f7ee !important; }
+  .tblock.done .tblock-name { color: #3a8a3a !important; opacity: 0.7; }
+  .tblock.done .tblock-time { color: #3a8a3a !important; opacity: 0.6; }
+  .tblock.done::after {
+    content: '✓ Hecho'; position: absolute; bottom: 5px; right: 8px;
+    font-size: 10px; font-weight: 600; color: #3a8a3a; opacity: 0.8;
   }
-  .done-btn.checked { background: #3a8a3a; border-color: #3a8a3a; color: #fff; }
-  .done-btn:hover { transform: scale(1.15); }
+  .week-block.done { border-left-color: #3a8a3a !important; background: #f0f7ee !important; }
+  .week-block.done .week-block-name { color: #3a8a3a !important; opacity: 0.7; }
+  .week-block.done .week-block-time { color: #3a8a3a !important; opacity: 0.6; }
+  .tblock-hint {
+    font-size: 10px; color: var(--muted); opacity: 0;
+    transition: opacity 0.2s; position: absolute; bottom: 4px; right: 8px;
+  }
+  .tblock:hover .tblock-hint { opacity: 0.5; }
 
   /* ── REPORTE PANEL ── */
   .report-btn {
@@ -654,11 +659,20 @@ function placeBlock(col, b, leftPx, rightPx) {
   el.className = 'tblock' + (done ? ' done' : '');
   el.dataset.edit = b.id;
   el.style.cssText = `top:${top}px;height:${height}px;background:${c.bg};border-left-color:${c.accent};left:${leftPx}px;right:${rightPx}px;position:absolute;`;
-  el.innerHTML = `<div class="tblock-name" style="color:${c.text};padding-right:26px">${b.name}</div>
+  el.innerHTML = `<div class="tblock-name" style="color:${c.text}">${b.name}</div>
     ${height>28?`<div class="tblock-time" style="color:${c.accent}">${b.start}–${b.end}</div>`:''}
-    <button class="done-btn${done?' checked':''}" data-done="${b.id}" style="color:${c.accent}" title="${done?'Marcar pendiente':'Marcar como hecho'}">✓</button>`;
-  el.querySelector('[data-done]').onclick = e => { e.stopPropagation(); toggleDone(b.id, state.cursor); };
-  el.onclick = () => openEdit(b.id);
+    ${!done?`<div class="tblock-hint">doble clic para completar</div>`:''}`;
+  // Doble clic = marcar/desmarcar como hecho
+  let clickTimer = null;
+  el.onclick = (e) => {
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      toggleDone(b.id, state.cursor);
+    } else {
+      clickTimer = setTimeout(() => { clickTimer = null; openEdit(b.id); }, 250);
+    }
+  };
   col.appendChild(el);
 }
 
@@ -729,15 +743,20 @@ function renderWeek(area) {
       el.style.cssText = `top:${top}px;height:${height}px;background:${c.bg};border-left-color:${c.accent};left:${leftPct}%;width:calc(${widthPct}% - 3px);right:auto;`;
       const wdone = isDone(b.id, d);
       el.className = 'week-block' + (wdone ? ' done' : '');
-      el.innerHTML = `<div class="week-block-name" style="color:${c.text};padding-right:20px">${b.name}</div>
-        ${height>26?`<div class="week-block-time" style="color:${c.accent}">${b.start}–${b.end}</div>`:''}
-        <button class="done-btn${wdone?' checked':''}" data-done="${b.id}" data-date="${isoDate(d)}" style="color:${c.accent};width:16px;height:16px;font-size:9px" title="Marcar">✓</button>`;
-      el.querySelector('[data-done]').onclick = e => {
-        e.stopPropagation();
-        const dt = new Date(e.currentTarget.dataset.date + 'T12:00:00');
-        toggleDone(b.id, dt);
+      el.innerHTML = `<div class="week-block-name" style="color:${c.text}">${b.name}</div>
+        ${height>26?`<div class="week-block-time" style="color:${c.accent}">${b.start}–${b.end}</div>`:''}`;
+      // Doble clic = marcar/desmarcar
+      let wClickTimer = null;
+      el.onclick = (e) => {
+        const dt = new Date(isoDate(d) + 'T12:00:00');
+        if (wClickTimer) {
+          clearTimeout(wClickTimer);
+          wClickTimer = null;
+          toggleDone(b.id, dt);
+        } else {
+          wClickTimer = setTimeout(() => { wClickTimer = null; openEdit(b.id); }, 250);
+        }
       };
-      el.onclick = () => openEdit(b.id);
       col.appendChild(el);
     });
     if (sameDay(d, todayDate)) placeCurrentTimeLine(col);
